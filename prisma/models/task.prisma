@@ -1,0 +1,33 @@
+// prisma/task.prisma
+model Task {
+  id             String        @id @default(uuid())
+  title          String
+  description    String?
+  status         TaskStatus    @default(pending)
+  priority       TaskPriority
+  priorityOrder  Int
+  dueDate        DateTime?
+  completionDate DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId         String
+  notification   Notification[]
+  meetings       Meeting[]
+  meetingMetadata Json? 
+}
+
+
+enum TaskStatus {
+  pending
+  completed
+  overdue
+}
+
+enum TaskPriority {
+  low
+  medium
+  high
+  urgent
+}

@@ -1,0 +1,21 @@
+// prisma/notification.prisma
+model Notification {
+  id        String           @id @default(uuid())
+  message   String
+  type      NotificationType @default(default)
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  dueDate   DateTime
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  taskId String?
+  task   Task?   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+}
+
+enum NotificationType {
+  default
+  critical
+}
