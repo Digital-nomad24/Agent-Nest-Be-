@@ -8,6 +8,8 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { GroupModule } from './group/group.module';
 import { PubsubModule } from './infra/pubsub/pubsub.module';
 import { TelegramModule } from './infra/telegram/telegram.module';
+import { AiCompletionsModule } from './ai-completions/ai-completions.module';
+import { GoogleModule } from './google/google.module';
 
 @Module({
   imports: [
@@ -23,6 +25,8 @@ import { TelegramModule } from './infra/telegram/telegram.module';
     GroupModule,
     PubsubModule,
     TelegramModule,
+    AiCompletionsModule,
+    GoogleModule,
   ],
   providers: [],
 })

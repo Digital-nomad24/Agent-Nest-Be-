@@ -23,16 +23,14 @@ export class CreateTaskDto {
   title: string;
 
   @IsEnum(TaskStatus)
-  @IsOptional()
   status?: TaskStatus = TaskStatus.PENDING;
 
   @IsEnum(TaskPriority)
-  @IsOptional()
   priority: TaskPriority = TaskPriority.MEDIUM;
 
   @IsNotEmpty()
   @IsString()
-  dueDate?: Date; 
+  dueDate: string; 
 
   @IsOptional()
   @IsString()

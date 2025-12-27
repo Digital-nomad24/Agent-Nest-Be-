@@ -17,11 +17,11 @@ export class GroupController {
                 private readonly createGroupUseCase:createGroupUseCase
     ) {}
     @Delete('/delete/:groupId')
-    deleteMember(@CurrentUser('id') userId:string,@Param('groupId') groupId:string){
+    leaveGroup(@CurrentUser('id') userId:string,@Param('groupId') groupId:string){
         return this.removeMemberGroupUseCase.execute(userId,groupId);
     }
-    @Post('/add/:groupId/:id')
-    addMember(@Param('id') userId:string,@Param('groupId') groupId:string){
+    @Post('/add/:groupId')
+    addMember(@Param('id') userId:string,@Body('groupId') groupId:string){
         return this.addMemberGroupUseCase.execute(userId,groupId);
     }
     @Get("/groups")

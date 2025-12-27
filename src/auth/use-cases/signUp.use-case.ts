@@ -3,13 +3,16 @@ import { PrismaService } from "prisma/prisma.service";
 import { UserSignUpDto } from "../../user/controllers/dtos/user.input";
 import bcrypt from 'bcrypt'
 import dotenv from 'dotenv'
+import { AuthService } from "../auth.service";
 dotenv.config();
 
 const SALT_ROUNDS = parseInt(process.env.SALT_ROUNDS || '10', 10);
 
 @Injectable()
 export class SignupUseCase {
-    constructor(private prisma: PrismaService) {}
+    constructor(private prisma: PrismaService,
+                private AuthService:AuthService
+    ) {}
     
     async execute(dto: UserSignUpDto) {
         const { name, email, password } = dto;
@@ -31,7 +34,7 @@ export class SignupUseCase {
                 password: hashedPassword,
             }
         });
-        const { password: _, ...userWithoutPassword } = user;
-        return userWithoutPassword;
+        const token=await this.AuthService.signToken(user.id,user.email);
+    return token;
     }
 }

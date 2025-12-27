@@ -1,12 +1,9 @@
-// use-cases/telegram-task-webhook.usecase.ts
-import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from 'prisma/prisma.service';
-import { TelegramService } from '../telegram.service';
-import { createTaskUseCase } from 'src/tasks/use-cases/create-tasks.use-case';
-import { TaskExtractionService } from '../telegram-task-extraction.service';
-import { taskExtractPrompt } from 'src/libs/prompts';
-import { CreateTaskDto, TaskPriority, TaskStatus } from 'src/tasks/controllers/dto/tasks';
-
+import { Injectable, Logger } from "@nestjs/common";
+import { PrismaService } from "prisma/prisma.service";
+import { taskExtractPrompt } from "src/libs/prompts";
+import { CreateTaskDto, TaskStatus } from "src/tasks/controllers/dto/tasks";
+import { TelegramService, TaskExtractionService } from "../services";
+import { createTaskUseCase } from "src/tasks/use-cases/create-tasks.use-case";
 @Injectable()
 export class TelegramTaskWebhookUseCase {
   private readonly logger = new Logger(TelegramTaskWebhookUseCase.name);
@@ -19,31 +16,50 @@ export class TelegramTaskWebhookUseCase {
   ) {}
 
   async execute(payload: any): Promise<void> {
+    this.logger.log("Telegram Webhook Triggered")
     const message = payload?.message;
-
-    if (!message?.text || !message?.chat?.id) {
-      this.logger.debug('Ignoring non-text message');
-      return;
-    }
+    if (!message?.text || !message?.chat?.id) return;
 
     const chatId = String(message.chat.id);
     const fullText = message.text.trim();
     const command = fullText.split(' ')[0].toLowerCase();
 
-    // Echo test (optional)
     await this.telegramService.sendTelegramMessage(
       chatId,
       `🤖 I received: "${fullText}"`,
     );
 
-    if (command !== '/remind') {
-      return;
-    }
+    switch (command) {
+      case '/help':
+        await this.handleHelp(chatId);
+        return;
 
-    await this.handleRemindCommand(chatId, fullText);
+      case '/remind':
+        await this.handleRemind(chatId, fullText);
+        return;
+
+      default:
+        return;
+    }
   }
 
-  private async handleRemindCommand(chatId: string, fullText: string) {
+  // ================= HELP =================
+
+  private async handleHelp(chatId: string) {
+    await this.telegramService.sendTelegramMessage(
+      chatId,
+      '🛠️ **Help Menu**\n\n' +
+        '• `/remind <message>`\n' +
+        '  _Example:_ `/remind Call mom tomorrow`\n\n' +
+        '• `/help`\n' +
+        '  Show this help menu.',
+    );
+  }
+
+  // ================= REMIND =================
+
+  private async handleRemind(chatId: string, fullText: string) {
+    // 1️⃣ Auth check
     const user = await this.prisma.user.findFirst({
       where: { telegramChatId: chatId },
       select: { id: true },
@@ -57,6 +73,7 @@ export class TelegramTaskWebhookUseCase {
       return;
     }
 
+    // 2️⃣ Extract reminder text
     const reminderText = fullText.replace(/^\/remind\s+/i, '').trim();
 
     if (!reminderText) {
@@ -67,10 +84,13 @@ export class TelegramTaskWebhookUseCase {
       return;
     }
 
-    // 1️⃣ Extract task using AI
+    // 3️⃣ AI extraction
     const extractedTask =
-      await this.taskExtractionService.extractTask(reminderText,taskExtractPrompt);
-
+      await this.taskExtractionService.extractTask(
+        reminderText,
+        taskExtractPrompt,
+      );
+    console.log(extractedTask?.dueDate)
     if (!extractedTask) {
       await this.telegramService.sendTelegramMessage(
         chatId,
@@ -79,31 +99,23 @@ export class TelegramTaskWebhookUseCase {
       return;
     }
 
-    // 2️⃣ Create task via API
     const createTaskDto: CreateTaskDto = {
   title: extractedTask.title,
   description: extractedTask.description,
   status:
-    extractedTask.status == 'pending'
+    extractedTask.status === 'pending'
       ? TaskStatus.PENDING
       : TaskStatus.COMPLETED,
-  priority:
-    extractedTask.priority == 'high'
-      ? TaskPriority.HIGH
-      : extractedTask.priority == 'medium'
-      ? TaskPriority.MEDIUM
-      : TaskPriority.LOW,
-  dueDate: extractedTask.dueDate
-    ? new Date(extractedTask.dueDate)
-    : undefined,
+  priority: extractedTask.priority,
+  dueDate: extractedTask.dueDate,
 };
 
-await this.createTaskUseCase.execute(user.id, createTaskDto);
 
-    // 3️⃣ Confirm to user
+    await this.createTaskUseCase.execute(user.id, createTaskDto);
+
     await this.telegramService.sendTelegramMessage(
       chatId,
-      `✅ Reminder set!\n\n📝 ${extractedTask.title}`,
+      `✅ **Reminder Set!**\n\n📝 ${extractedTask.title}`,
     );
   }
 }

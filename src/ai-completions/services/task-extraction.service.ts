@@ -2,6 +2,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OpenAI } from 'openai';
+import { TaskPriority, TaskStatus } from 'src/tasks/controllers/dto/tasks';
 import { z } from 'zod';
 
 @Injectable()
@@ -21,9 +22,9 @@ export class TaskExtractionService {
   ): Promise<{
     title: string;
     description: string;
-    status: 'pending' | 'completed';
-    priority: 'high' | 'medium' | 'low';
-    dueDate: string | null;
+    status: TaskStatus;
+    priority: TaskPriority;
+    dueDate: string;
   } | null> {
     const response = await this.openai.chat.completions.create({
       model: 'gpt-3.5-turbo',
@@ -55,9 +56,9 @@ export class TaskExtractionService {
       const taskSchema = z.object({
         title: z.string().min(1),
         description: z.string().optional(),
-        status: z.enum(['pending', 'completed']),
-        priority: z.enum(['high', 'medium', 'low']),
-        dueDate: z.string().nullable().optional(),
+        status: z.enum(TaskStatus),
+        priority: z.enum(TaskPriority),
+        dueDate: z.string(),
       });
 
       const validated = taskSchema.parse(parsed);
@@ -67,9 +68,7 @@ export class TaskExtractionService {
         description: validated.description ?? '',
         status: validated.status,
         priority: validated.priority,
-        dueDate: validated.dueDate
-          ? new Date(validated.dueDate).toISOString()
-          : null,
+        dueDate: new Date(validated.dueDate).toISOString(),
       };
     } catch (err) {
       this.logger.error('Failed to parse task from OpenAI response', rawContent);

@@ -3,11 +3,13 @@ import {
   Logger,
   OnModuleInit,
   OnModuleDestroy,
+  BadRequestException,
 } from '@nestjs/common';
 import { Subscription } from '@google-cloud/pubsub';
 import { PubSubClient } from 'src/infra/pubsub/pubsub.client';
 import { ReminderPayload } from './publisher.service';
 import { NotificationsGateway } from '../sockets/notification.gateway';
+import { TelegramService } from 'src/infra/telegram/services';
 
 
 @Injectable()
@@ -22,6 +24,7 @@ export class ReminderSubscriberService
   constructor(
     private readonly gateway: NotificationsGateway,
     private readonly pubsub: PubSubClient,
+    private readonly telegramService:TelegramService
   ) {}
 
   onModuleInit() {
@@ -35,7 +38,7 @@ export class ReminderSubscriberService
   }
 
   async handleMessage(message: any) {
-    try {
+   
       const data: ReminderPayload = JSON.parse(message.data.toString());
 
       const deliveredViaSocket =
@@ -47,19 +50,16 @@ export class ReminderSubscriberService
         });
         console.log("MESSAGE RECEIVED")
 
-      // if (!deliveredViaSocket) {
-      //   await this.telegramService.sendReminder(
-      //     data.userId,
-      //     data.title,
-      //     data.dueTime,
-      //   );
-      // }
+        const chatId=await this.telegramService.getTelegramChatIdForUser(
+          data.userId,
+        );
+        if(!chatId){
+          return new BadRequestException('Telegram Chat Id does not exist')
+        }
+        console.log(String(message.data))
+        await this.telegramService.sendTelegramMessage(chatId,String(message.data))
 
       message.ack();
-    } catch (err) {
-      this.logger.error('Error processing reminder', err);
-      message.nack();
-    }
   }
 
   onModuleDestroy() {

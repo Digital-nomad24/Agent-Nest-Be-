@@ -16,13 +16,13 @@ export class TelegramService {
     this.botToken = this.configService.get<string>('TELEGRAM_BOT_TOKEN')!;
   }
 
-  async getTelegramChatIdForUser(userId: string): Promise<string | null> {
-    const user = await this.prisma.user.findUnique({
+  async getTelegramChatIdForUser(userId: string) {
+    const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
       select: { telegramChatId: true },
     });
 
-    return user?.telegramChatId ?? null;
+    return user.telegramChatId ;
   }
 
   async sendTelegramMessage(
@@ -30,7 +30,13 @@ export class TelegramService {
     message: string,
   ): Promise<void> {
     const url = `https://api.telegram.org/bot${this.botToken}/sendMessage`;
+      let text: string;
 
+  if (typeof message === "string") {
+    text = message;
+  } else {
+    text = JSON.stringify(message, null, 2);
+  }
     try {
       await axios.post(url, {
         chat_id: chatId,
