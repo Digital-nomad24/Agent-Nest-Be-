@@ -14,10 +14,13 @@ export class GoogleCalendarService {
   ) {}
 
   getAuthUrl(userId: string): string {
+    // CRITICAL: This redirect_uri MUST match what's in Google Cloud Console
+    const redirectUri = 'https://agent-nest-be.onrender.com/auth/google/callback';
+    
     const oauth2Client = new google.auth.OAuth2(
       this.configService.get('GOOGLE_ID'),
       this.configService.get('GOOGLE_SECRET'),
-      'https://agent-nest-be.onrender.com/auth/google/calendar/callback',
+      redirectUri, // Using variable for consistency
     );
 
     const state = jwt.sign(
@@ -36,20 +39,27 @@ export class GoogleCalendarService {
       state,
     });
 
+    console.log('📋 Generated auth URL with redirect_uri:', redirectUri);
     return authUrl;
   }
 
   async handleCallback(code: string, state: string) {
+    // Verify and decode the state JWT
     const decoded = jwt.verify(
       state,
       this.configService.get('JWT_SECRET')!,
     ) as { userId: string };
     const userId = decoded.userId;
 
+    console.log('✅ State verified for user:', userId);
+
+    // CRITICAL: This redirect_uri MUST match what was used in getAuthUrl
+    const redirectUri = 'https://agent-nest-be.onrender.com/auth/google/callback';
+    
     const oauth2Client = new google.auth.OAuth2(
       this.configService.get('GOOGLE_ID'),
       this.configService.get('GOOGLE_SECRET'),
-      'https://agent-nest-be.onrender.com/auth/google/calendar/callback',
+      redirectUri, // Must match getAuthUrl
     );
 
     const { tokens } = await oauth2Client.getToken(code);
@@ -69,6 +79,9 @@ export class GoogleCalendarService {
       },
     });
 
+    console.log('💾 Calendar connected for user:', userId);
+
+    // Set up calendar watch
     await this.setupCalendarWatch(userId, tokens.access_token!);
   }
 
@@ -76,7 +89,7 @@ export class GoogleCalendarService {
     const oauth2Client = new google.auth.OAuth2(
       this.configService.get('GOOGLE_ID'),
       this.configService.get('GOOGLE_SECRET'),
-      'http://localhost:3333/google/calendar/callback',
+      'https://agent-nest-be.onrender.com/auth/google/callback',
     );
     oauth2Client.setCredentials({ access_token: accessToken });
 
@@ -84,7 +97,7 @@ export class GoogleCalendarService {
     const channelId = uuidv4();
     
     const webhookUrl = this.configService.get('GOOGLE_WEBHOOK_URL') || 
-                      'https://your-ngrok-url.ngrok-free.app/google/calendar/webhook';
+                      'https://agent-nest-be.onrender.com/auth/google/webhook';
 
     try {
       const watchRes = await calendar.events.watch({
@@ -114,7 +127,7 @@ export class GoogleCalendarService {
       console.log('🔔 Calendar watch created:', { channelId, resourceId });
     } catch (error) {
       console.error('Failed to set up calendar watch:', error);
-      throw error;
+      // Don't throw error - calendar connection still works without watch
     }
   }
 
@@ -178,7 +191,7 @@ export class GoogleCalendarService {
     const oauth2Client = new google.auth.OAuth2(
       this.configService.get('GOOGLE_ID'),
       this.configService.get('GOOGLE_SECRET'),
-      'http://localhost:3333/google/calendar/callback',
+      'https://agent-nest-be.onrender.com/auth/google/callback',
     );
 
     oauth2Client.setCredentials({ refresh_token: refreshToken });
@@ -190,7 +203,7 @@ export class GoogleCalendarService {
         : new Date(Date.now() + 3600 * 1000);
 
       await this.prisma.user.update({
-        where: { id: userId },
+        where: { id:userId },
         data: {
           googleAccessToken: credentials.access_token!,
           googleRefreshToken: credentials.refresh_token || refreshToken,
