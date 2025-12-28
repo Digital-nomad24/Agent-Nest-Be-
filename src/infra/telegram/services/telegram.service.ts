@@ -4,6 +4,8 @@ import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { PrismaService } from 'prisma/prisma.service';
 
+type TaskPriority = 'high' | 'medium' | 'low';
+
 @Injectable()
 export class TelegramService {
   private readonly logger = new Logger(TelegramService.name);
@@ -16,41 +18,41 @@ export class TelegramService {
     this.botToken = this.configService.get<string>('TELEGRAM_BOT_TOKEN')!;
   }
 
-  async getTelegramChatIdForUser(userId: string) {
-  const user = await this.prisma.user.findUnique({
-    where: { id: userId },
-    select: { telegramChatId: true },
-  });
+  async getTelegramChatIdForUser(userId: string): Promise<string | null> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { telegramChatId: true },
+    });
 
-  if (!user) {
-    this.logger.warn(`User not found for userId=${userId}`);
-    return null;
+    if (!user) {
+      this.logger.warn(`User not found for userId=${userId}`);
+      return null;
+    }
+
+    if (!user.telegramChatId) {
+      this.logger.warn(`Telegram not connected for userId=${userId}`);
+      return null;
+    }
+
+    return user.telegramChatId;
   }
-
-  if (!user.telegramChatId) {
-    this.logger.warn(`Telegram not connected for userId=${userId}`);
-    return null;
-  }
-
-  return user.telegramChatId;
-}
 
   async sendTelegramMessage(
     chatId: string,
     message: string,
   ): Promise<void> {
     const url = `https://api.telegram.org/bot${this.botToken}/sendMessage`;
-      let text: string;
 
-  if (typeof message === "string") {
-    text = message;
-  } else {
-    text = JSON.stringify(message, null, 2);
-  }
+    const text =
+      typeof message === 'string'
+        ? message
+        : JSON.stringify(message, null, 2);
+
     try {
       await axios.post(url, {
         chat_id: chatId,
-        text: message,
+        text,
+        parse_mode: 'Markdown',
       });
     } catch (error) {
       this.logger.error(
@@ -60,28 +62,35 @@ export class TelegramService {
       throw error;
     }
   }
-  async formatTaskNotification(data: any){
-  const dueDate = new Date(data.dueTime);
-  const formattedDate = dueDate.toLocaleString('en-US', {
-    weekday: 'short',
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
 
-  const priorityEmoji = {
-    high: '🔴',
-    medium: '🟡',
-    low: '🟢'
-  }[data.priority] || '⚪';
+  formatTaskNotification(data: any): string {
+    // ✅ Normalize & protect runtime values
+    const title = data?.title ?? 'Untitled Task';
+    const dueTime = data?.dueTime ?? new Date().toISOString();
+    const priority = (data?.priority ?? 'low') as TaskPriority;
 
-  return `
+    const dueDate = new Date(dueTime);
+    const formattedDate = dueDate.toLocaleString('en-US', {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    const priorityEmoji: Record<TaskPriority, string> = {
+      high: '🔴',
+      medium: '🟡',
+      low: '🟢',
+    };
+
+    return `
 🔔 *Task Reminder*
 
-📋 *Title:* ${data.title}
-${priorityEmoji} *Priority:* ${data.priority.toUpperCase()}
-⏰ *Due:* ${formattedDate}`.trim();
-};
+📋 *Title:* ${title}
+${priorityEmoji[priority]} *Priority:* ${priority.toUpperCase()}
+⏰ *Due:* ${formattedDate}
+`.trim();
+  }
 }
