@@ -10,19 +10,19 @@ export class connectTelegramUseCase{
                 private readonly JwtService:JwtService
     ){
     }
-    async execute(token:string,dto:ConnectTelegramDto){
+    async execute(dto:ConnectTelegramDto){
       console.log("Reached the telegram Route")
-       const tokenUser=await this.JwtService.verifyAsync(token)
-        console.log("Reached the telegram Route 2")
           const {telegramChatId, email, password } = dto;
           const user=await this.prisma.user.findUnique({
             where:{
                 email
             }
           })
-          if(!user || tokenUser.sub!==user.id){
+          if(!user){
             return new NotFoundException('account Not found')
           }
+                  console.log("Reached the telegram Route 2")
+
           if (
       user.telegramChatId && 
       user.telegramChatId !== String(telegramChatId)
