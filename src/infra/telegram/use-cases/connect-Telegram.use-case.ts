@@ -3,19 +3,24 @@ import { PrismaService } from "prisma/prisma.service";
 import { NotFoundError } from "rxjs";
 import bcrypt from 'bcrypt'
 import { ConnectTelegramDto } from "../controllers/dtos/telegram.input";
+import { JwtService } from "@nestjs/jwt";
 @Injectable()
 export class connectTelegramUseCase{
-    constructor(private readonly prisma:PrismaService){
+    constructor(private readonly prisma:PrismaService,
+                private readonly JwtService:JwtService
+    ){
     }
-    async execute(userId:string,dto:ConnectTelegramDto){
-        console.log("Reached the telegram Route")
+    async execute(token:string,dto:ConnectTelegramDto){
+      console.log("Reached the telegram Route")
+       const tokenUser=await this.JwtService.verifyAsync(token)
+        console.log("Reached the telegram Route 2")
           const {telegramChatId, email, password } = dto;
           const user=await this.prisma.user.findUnique({
             where:{
                 email
             }
           })
-          if(!user){
+          if(!user || tokenUser.sub!==user.id){
             return new NotFoundException('account Not found')
           }
           if (

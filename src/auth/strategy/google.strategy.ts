@@ -14,7 +14,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     super({
       clientID: configService.get<string>('GOOGLE_CLIENT_ID')!,
       clientSecret: configService.get<string>('GOOGLE_CLIENT_SECRET')!,
-      callbackURL: 'http://localhost:3333/auth/google/signin/callback',
+      callbackURL: 'https://agent-nest-be.onrender.com/auth/google/signin/callback',
       scope: ['email', 'profile'],
     });
   }
