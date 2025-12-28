@@ -10,6 +10,7 @@ import { PubsubModule } from './infra/pubsub/pubsub.module';
 import { TelegramModule } from './infra/telegram/telegram.module';
 import { AiCompletionsModule } from './ai-completions/ai-completions.module';
 import { GoogleModule } from './google/google.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { GoogleModule } from './google/google.module';
     TelegramModule,
     AiCompletionsModule,
     GoogleModule,
+    HealthModule,
   ],
   providers: [],
 })
