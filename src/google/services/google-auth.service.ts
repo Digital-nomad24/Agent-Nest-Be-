@@ -12,6 +12,6 @@ export class GoogleAuthService {
       email: user.email ,
     };
     
-    return this.AuthService.signToken(user.id,String(payload));
+    return this.AuthService.signToken(payload.sub,payload.email);
   }
 }
