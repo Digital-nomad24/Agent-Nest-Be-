@@ -42,13 +42,37 @@ export class GoogleController {
     res.redirect(`${clientUrl}/auth/callback?token=${token}`);
   }
 
+  // NEW: Return auth URL instead of redirecting (so frontend can handle the redirect)
+  @Get('get-calendar-auth-url')
+  @UseGuards(AuthGuard('jwt'))
+  async getCalendarAuthUrl(@Req() req) {
+    try {
+      const userId = req.user.id;
+      console.log('🔐 Getting calendar auth URL for user:', userId);
+      const authUrl = this.googleCalendarService.getAuthUrl(userId);
+      console.log('🔗 Generated auth URL');
+      return { authUrl };
+    } catch (error) {
+      console.error('❌ Get auth URL error:', error);
+      throw error;
+    }
+  }
+
   // Connect calendar - FIXED: This now handles authentication properly
   @Get('connect-calendar')
   @UseGuards(AuthGuard('jwt'))
   async connectCalendar(@Req() req, @Res() res: Response) {
-    const userId = req.user.id;
-    const authUrl = this.googleCalendarService.getAuthUrl(userId);
-    res.redirect(authUrl);
+    try {
+      const userId = req.user.id;
+      console.log('🔐 Connecting calendar for user:', userId);
+      const authUrl = this.googleCalendarService.getAuthUrl(userId);
+      console.log('🔗 Redirecting to:', authUrl);
+      res.redirect(authUrl);
+    } catch (error) {
+      console.error('❌ Connect calendar error:', error);
+      const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+      res.redirect(`${clientUrl}/dashboard?error=connection_failed`);
+    }
   }
 
   // Calendar OAuth callback
