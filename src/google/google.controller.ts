@@ -60,7 +60,6 @@ export class GoogleController {
 
   // Connect calendar - FIXED: This now handles authentication properly
   @Get('connect-calendar')
-  @UseGuards(AuthGuard('jwt'))
   async connectCalendar(@Req() req, @Res() res: Response) {
     try {
       const userId = req.user.id;
