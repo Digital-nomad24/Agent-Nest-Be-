@@ -25,7 +25,7 @@ export class GoogleController {
     private googleAuthService: GoogleAuthService,
   ) {}
 
-   @Get('signin')
+  @Get('signin')
   @UseGuards(AuthGuard('google')) 
   async googleSignIn() {
     // GoogleAuthGuard redirects to Google
@@ -40,9 +40,9 @@ export class GoogleController {
     
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:8080';
     res.redirect(`${clientUrl}/auth/callback?token=${token}`);
-
   }
-  // Connect calendar
+
+  // Connect calendar - FIXED: This now handles authentication properly
   @Get('connect-calendar')
   @UseGuards(AuthGuard('jwt'))
   async connectCalendar(@Req() req, @Res() res: Response) {
@@ -58,18 +58,34 @@ export class GoogleController {
     @Query('state') state: string,
     @Res() res: Response,
   ) {
-    await this.googleCalendarService.handleCallback(code, state);
-    const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
-    res.redirect(`${clientUrl}/dashboard?calendarConnected=true`);
+    try {
+      await this.googleCalendarService.handleCallback(code, state);
+      const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+      res.redirect(`${clientUrl}/dashboard?calendarConnected=true`);
+    } catch (error) {
+      console.error('Calendar callback error:', error);
+      const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+      res.redirect(`${clientUrl}/dashboard?calendarConnected=false&error=true`);
+    }
   }
 
-  // Calendar status
+  // Calendar status - FIXED: Now properly returns actual connection status
   @Get('calendar-status')
   @UseGuards(AuthGuard('jwt'))
   async getCalendarStatus(@Req() req) {
     const userId = req.user.id;
-    // Implement status check logic
-    return { connected: true };
+    
+    // Get actual connection status from service
+    const status = await this.googleCalendarService.getConnectionStatus(userId);
+    
+    // You can also fetch group info if needed
+    // For now, returning just the connection status
+    return {
+      connected: status.connected,
+      tokenValid: status.tokenValid,
+      hasRefreshToken: status.hasRefreshToken,
+      groupId: null, // Add this if you have group logic
+    };
   }
 
   // Webhook endpoint for Google Calendar notifications

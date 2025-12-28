@@ -17,7 +17,7 @@ export class GoogleCalendarService {
     const oauth2Client = new google.auth.OAuth2(
       this.configService.get('GOOGLE_ID'),
       this.configService.get('GOOGLE_SECRET'),
-      'http://localhost:3333/google/calendar/callback',
+      'https://agent-nest-be.onrender.com/auth/google/calendar/callback',
     );
 
     const state = jwt.sign(
@@ -49,7 +49,7 @@ export class GoogleCalendarService {
     const oauth2Client = new google.auth.OAuth2(
       this.configService.get('GOOGLE_ID'),
       this.configService.get('GOOGLE_SECRET'),
-      'http://localhost:3333/google/calendar/callback',
+      'https://agent-nest-be.onrender.com/auth/google/calendar/callback',
     );
 
     const { tokens } = await oauth2Client.getToken(code);
