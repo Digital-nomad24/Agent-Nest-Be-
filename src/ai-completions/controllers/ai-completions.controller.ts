@@ -16,6 +16,7 @@ export class AiCompletionsController {
         if(!data){
             return new BadRequestException("Task data not created")
         }
+        console.log("This is ai route ".repeat(5))
         console.log(data)
         return await this.createTaskUseCase.execute(user.id,data)
     }

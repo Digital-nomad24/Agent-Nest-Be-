@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { OpenAI } from 'openai';
 import { TaskPriority, TaskStatus } from 'src/tasks/controllers/dto/tasks';
 import { z } from 'zod';
-
+import { fromZonedTime } from 'date-fns-tz';
 @Injectable()
 export class TaskExtractionService {
   private readonly logger = new Logger(TaskExtractionService.name);
@@ -62,13 +62,18 @@ export class TaskExtractionService {
       });
 
       const validated = taskSchema.parse(parsed);
+      const utcDate = fromZonedTime(
+  validated.dueDate,
+  'Asia/Kolkata',
+);
+
 
       return {
         title: validated.title,
         description: validated.description ?? '',
         status: validated.status,
         priority: validated.priority,
-        dueDate: new Date(validated.dueDate).toISOString(),
+        dueDate:utcDate.toISOString(),
       };
     } catch (err) {
       this.logger.error('Failed to parse task from OpenAI response', rawContent);

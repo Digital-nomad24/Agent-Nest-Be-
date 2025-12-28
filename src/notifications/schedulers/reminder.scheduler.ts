@@ -47,7 +47,7 @@ export class ReminderScheduler {
           },
         });
 
-        if (existingNotification) {
+        if (existingNotification?.isRead && existingNotification?.dueDate>existingNotification?.createdAt) {
           this.logger.debug(`Notification already exists for task: ${task.id}`);
           continue;
         }

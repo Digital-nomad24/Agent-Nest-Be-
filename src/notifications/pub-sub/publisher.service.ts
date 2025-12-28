@@ -8,7 +8,7 @@ export type ReminderPayload = {
   userId: string;
   taskId: string;
   title: string;
-  dueTime: string; // ISO
+  dueDate: string; // ISO
   priority: TaskPriority;
 };
 
@@ -55,7 +55,7 @@ export class ReminderPublisherService {
     userId: task.userId,
     taskId: task.id,
     title: task.title,
-    dueTime: task.dueDate?.toISOString() || new Date().toISOString(),
+    dueDate: task.dueDate?.toISOString() || new Date().toISOString(),
     priority: task.priority,
   };
 }
