@@ -1,11 +1,15 @@
-const currentDateISO = new Date().toISOString();
+const currentDateLocal = new Date().toLocaleString('en-IN', {
+  timeZone: 'Asia/Kolkata',
+  dateStyle: 'full',
+  timeStyle: 'long',
+});
 
 export const taskExtractPrompt = `
 You are a helpful assistant that extracts structured task details from user messages.
 A task is any actionable item such as a meeting, reminder, deadline, or to-do (e.g., "arrange a meet", "submit the form", "remind me", "complete assignment", etc.).
 Even if the message is casual or implicit, extract the task if it's clearly something the user intends to do.
 
-Assume today's date and time is: ${currentDateISO}
+Assume today's date and time is: ${currentDateLocal}
 
 Examples:
 - "I have to meet Aman tomorrow at 11am" → this is a task.
@@ -29,11 +33,13 @@ Priority Guidelines:
 
 When there is no clear task, respond conversationally and DO NOT return any JSON.
 Be concise and accurate.
+Do NOT include timezone in output.
+The dueDate represents local IST time.
 `;
 
 export const meetingExtractPrompt = `
 You are a meeting extraction assistant. Extract meeting details from user messages and return them as JSON.
-Assume the current date and time is: ${currentDateISO}
+Assume the current date and time is: ${currentDateLocal}
 
 Required fields:
 - title: Brief meeting title (max 200 characters)

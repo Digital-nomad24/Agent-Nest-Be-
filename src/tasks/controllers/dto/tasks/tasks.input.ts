@@ -1,5 +1,6 @@
 import {
   IsEnum,
+  IsISO8601,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -30,6 +31,7 @@ export class CreateTaskDto {
 
   @IsNotEmpty()
   @IsString()
+  @IsISO8601()
   dueDate: string; 
 
   @IsOptional()

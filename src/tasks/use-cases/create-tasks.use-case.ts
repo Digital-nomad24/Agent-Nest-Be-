@@ -27,7 +27,7 @@ export class createTaskUseCase{
         status,
         priority,
         priorityOrder,
-        dueDate: dueDate,
+        dueDate: new Date(dueDate),
         userId: userId,
       },
       select:{

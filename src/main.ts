@@ -12,9 +12,8 @@ async function bootstrap() {
     whitelist: true
   }));
 
-  // ✅ FIX: Use just '*' to allow all origins
   app.enableCors({
-    origin: '*', // Remove the array, just use '*'
+    origin: '*', 
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
     credentials: true,
