@@ -8,7 +8,7 @@ export class GoogleAuthService {
 
   async generateJwtToken(user: any) {
     const payload = { 
-      sub: user.name , 
+      sub: user.id , 
       email: user.email ,
     };
     

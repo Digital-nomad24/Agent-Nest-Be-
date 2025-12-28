@@ -14,7 +14,7 @@ export class telegramController{
         return this.connectTelegramUseCase.execute(dto)  
     }
     @Post('/webhook')
-    webhook(@CurrentUser()user,@Body()body:any){
+    webhook(@Body()body:any){
         return this.telegramTaskWebhookUseCase.execute(body)
     }
 }
