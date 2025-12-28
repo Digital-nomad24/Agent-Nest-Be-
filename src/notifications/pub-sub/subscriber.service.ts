@@ -56,6 +56,8 @@ export class ReminderSubscriberService
       type: data.priority === 'high' ? 'critical' : 'default',
       dueDate: data.dueDate,
       taskId: data.taskId,
+      id:data.notificationId,
+      isRead: false
     });
 
     /* ---------- TELEGRAM NOTIFICATION ---------- */

@@ -20,7 +20,7 @@ export class UpdateNotificationUseCase {
         userId,
       },
       data:
-      {isRead: dto.isRead},
+      {isRead: true},
     });
 
     if (updated.count === 0) {

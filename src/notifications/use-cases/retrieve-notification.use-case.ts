@@ -13,7 +13,15 @@ export class retrieveNotificationsUseCase {
       },
       orderBy: {
         createdAt: 'desc',
-      },
+      },select: {
+      id: true,  // ✅ Make sure this is included
+      message: true,
+      type: true,
+      dueDate: true,
+      taskId: true,
+      isRead: true,
+      createdAt: true,
+    }
     });
   }
 }
