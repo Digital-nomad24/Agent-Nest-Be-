@@ -57,7 +57,12 @@ export class ReminderSubscriberService
           return new BadRequestException('Telegram Chat Id does not exist')
         }
         console.log(String(message.data))
-        await this.telegramService.sendTelegramMessage(chatId,String(message.data))
+        
+
+await this.telegramService.sendTelegramMessage(
+  chatId, 
+ await this.telegramService.formatTaskNotification(message.data)
+);
 
       message.ack();
   }

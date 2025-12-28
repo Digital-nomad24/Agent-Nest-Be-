@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString } from "class-validator";
+import { IsNotEmpty, IsOptional, IsString } from "class-validator";
 
 export class ConnectTelegramDto{
     @IsString()
@@ -10,7 +10,7 @@ export class ConnectTelegramDto{
     email: string;
 
     @IsString()
-    @IsNotEmpty()
-    password: string;
+    @IsOptional()
+    password?: string;
 
 }

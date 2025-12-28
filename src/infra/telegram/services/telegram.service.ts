@@ -60,4 +60,28 @@ export class TelegramService {
       throw error;
     }
   }
+  async formatTaskNotification(data: any){
+  const dueDate = new Date(data.dueTime);
+  const formattedDate = dueDate.toLocaleString('en-US', {
+    weekday: 'short',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  const priorityEmoji = {
+    high: '🔴',
+    medium: '🟡',
+    low: '🟢'
+  }[data.priority] || '⚪';
+
+  return `
+🔔 *Task Reminder*
+
+📋 *Title:* ${data.title}
+${priorityEmoji} *Priority:* ${data.priority.toUpperCase()}
+⏰ *Due:* ${formattedDate}`.trim();
+};
 }
