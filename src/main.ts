@@ -11,7 +11,11 @@ async function bootstrap() {
     whitelist:true
   }))
   app.enableCors({
-    origin: ['http://localhost:8080','http://localhost:8000'], // frontend URL
+    origin: ['http://localhost:8080','http://localhost:8000',
+      'https://web.telegram.org',        // Telegram WebApp
+      /https:\/\/.*\.telegram\.org$/,    // All Telegram subdomains
+      /https:\/\/.*\.t\.me$/,            // Telegram short links
+    ], // frontend URL
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
