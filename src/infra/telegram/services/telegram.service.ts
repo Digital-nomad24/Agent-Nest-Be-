@@ -17,13 +17,23 @@ export class TelegramService {
   }
 
   async getTelegramChatIdForUser(userId: string) {
-    const user = await this.prisma.user.findUniqueOrThrow({
-      where: { id: userId },
-      select: { telegramChatId: true },
-    });
+  const user = await this.prisma.user.findUnique({
+    where: { id: userId },
+    select: { telegramChatId: true },
+  });
 
-    return user.telegramChatId ;
+  if (!user) {
+    this.logger.warn(`User not found for userId=${userId}`);
+    return null;
   }
+
+  if (!user.telegramChatId) {
+    this.logger.warn(`Telegram not connected for userId=${userId}`);
+    return null;
+  }
+
+  return user.telegramChatId;
+}
 
   async sendTelegramMessage(
     chatId: string,
