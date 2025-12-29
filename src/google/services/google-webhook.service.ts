@@ -40,11 +40,11 @@ export class GoogleWebhookService {
 
     try {
       const accessToken = await this.googleCalendarService.getValidAccessToken(userId);
-
+      const clientUrl = process.env.CLIENT_URL
       const oauth2Client = new google.auth.OAuth2(
         this.configService.get('GOOGLE_ID'),
         this.configService.get('GOOGLE_SECRET'),
-        'http://localhost:3333/google/calendar/callback',
+        `${clientUrl}/google/calendar/callback`,
       );
       oauth2Client.setCredentials({ access_token: accessToken });
 
