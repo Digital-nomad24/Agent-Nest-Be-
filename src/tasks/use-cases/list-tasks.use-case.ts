@@ -9,6 +9,7 @@ export class listTasksUseCase {
 
   async execute(userId: string) {
     return this.prisma.task.findMany({
+      where:{userId:userId},
       orderBy: [
         { status: 'asc' },
         { priorityOrder: 'asc' },
