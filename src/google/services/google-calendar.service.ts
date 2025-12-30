@@ -18,8 +18,8 @@ export class GoogleCalendarService {
     const redirectUri = 'https://agent-nest-be.onrender.com/auth/google/callback';
     
     const oauth2Client = new google.auth.OAuth2(
-      this.configService.get('GOOGLE_ID'),
-      this.configService.get('GOOGLE_SECRET'),
+      this.configService.get('GOOGLE_CLIENT_ID'),
+      this.configService.get('GOOGLE_CLIENT_SECRET'),
       redirectUri, // Using variable for consistency
     );
 
@@ -57,9 +57,9 @@ export class GoogleCalendarService {
     const redirectUri = 'https://agent-nest-be.onrender.com/auth/google/callback';
     
     const oauth2Client = new google.auth.OAuth2(
-      this.configService.get('GOOGLE_ID'),
-      this.configService.get('GOOGLE_SECRET'),
-      redirectUri, // Must match getAuthUrl
+      this.configService.get('GOOGLE_CLIENT_ID'),
+      this.configService.get('GOOGLE_CLIENT_SECRET'),
+      redirectUri,
     );
 
     const { tokens } = await oauth2Client.getToken(code);
@@ -81,14 +81,13 @@ export class GoogleCalendarService {
 
     console.log('💾 Calendar connected for user:', userId);
 
-    // Set up calendar watch
     await this.setupCalendarWatch(userId, tokens.access_token!);
   }
 
   async setupCalendarWatch(userId: string, accessToken: string) {
     const oauth2Client = new google.auth.OAuth2(
-      this.configService.get('GOOGLE_ID'),
-      this.configService.get('GOOGLE_SECRET'),
+      this.configService.get('GOOGLE_CLIENT_ID'),
+      this.configService.get('GOOGLE_CLIENT_SECRET'),
       'https://agent-nest-be.onrender.com/auth/google/callback',
     );
     oauth2Client.setCredentials({ access_token: accessToken });
@@ -189,8 +188,8 @@ export class GoogleCalendarService {
 
   private async refreshToken(userId: string, refreshToken: string): Promise<string> {
     const oauth2Client = new google.auth.OAuth2(
-      this.configService.get('GOOGLE_ID'),
-      this.configService.get('GOOGLE_SECRET'),
+      this.configService.get('GOOGLE_CLIENT_ID'),
+      this.configService.get('GOOGLE_CLIENT_SECRET'),
       'https://agent-nest-be.onrender.com/auth/google/callback',
     );
 

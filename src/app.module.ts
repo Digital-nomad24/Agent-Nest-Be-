@@ -11,6 +11,8 @@ import { TelegramModule } from './infra/telegram/telegram.module';
 import { AiCompletionsModule } from './ai-completions/ai-completions.module';
 import { GoogleModule } from './google/google.module';
 import { HealthModule } from './health/health.module';
+import { CalendarModule } from './calendar/calendar.module';
+import { MeetingModule } from './meeting/meeting.module';
 
 @Module({
   imports: [
@@ -29,6 +31,8 @@ import { HealthModule } from './health/health.module';
     AiCompletionsModule,
     GoogleModule,
     HealthModule,
+    CalendarModule,
+    MeetingModule,
   ],
   providers: [],
 })

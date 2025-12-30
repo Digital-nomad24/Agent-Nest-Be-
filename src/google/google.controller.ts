@@ -58,7 +58,6 @@ export class GoogleController {
     }
   }
 
-  // Connect calendar - FIXED: This now handles authentication properly
   @Get('connect-calendar')
   async connectCalendar(@Req() req, @Res() res: Response) {
     try {

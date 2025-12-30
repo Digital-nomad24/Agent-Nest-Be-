@@ -12,7 +12,7 @@ model Meeting {
   location              String?
   meetingLink           String?
   status                MeetingStatus @default(confirmed)
-  googleEventId         String?
+  googleEventId         String?   @unique
   attendees             MeetingAttendee[]
   sourceType            MeetingSourceType @default(manual)
   slotOfferId           String?   @unique
