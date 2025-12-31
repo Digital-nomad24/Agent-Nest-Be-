@@ -16,7 +16,6 @@ import { GoogleCalendarService } from './services/google-calendar.service';
 import { GoogleWebhookService } from './services/google-webhook.service';
 import { GoogleAuthService } from './services/google-auth.service';
 
-
 @Controller('auth/google')
 export class GoogleController {
   constructor(
@@ -26,43 +25,57 @@ export class GoogleController {
   ) {}
 
   @Get('signin')
-  @UseGuards(AuthGuard('google')) 
-  async googleSignIn() {
-    // GoogleAuthGuard redirects to Google
+  @UseGuards(AuthGuard('google'))
+  async googleSignIn(@Query('state') state: string, @Req() req) {
+    // ✅ Pass state through to Google OAuth
+    // The state will be automatically included by passport
   }
 
-@Get('signin/callback')
-@UseGuards(AuthGuard('google'))
-async googleSignInCallback(@Req() req, @Res() res: Response) {
-  const user = req.user; // populated by GoogleStrategy
-  const token = await this.googleAuthService.generateJwtToken(user);
+  @Get('signin/callback')
+  @UseGuards(AuthGuard('google'))
+  async googleSignInCallback(@Req() req, @Res() res: Response) {
+    try {
+      const user = req.user; // populated by GoogleStrategy
+      const token = await this.googleAuthService.generateJwtToken(user);
 
-  const clientUrl = process.env.CLIENT_URL || 'http://localhost:8080';
-  console.log("^%^".repeat(19))
-  console.log(req.query)
-  let state: any = {};
-  try {
-    if (req.query.state) {
-      state = JSON.parse(String(req.query.state));
-      console.log("this is state", state)
+      const clientUrl = process.env.CLIENT_URL || 'http://localhost:8080';
+      
+      console.log("=".repeat(50));
+      console.log("📋 Query params:", req.query);
+      
+      let state: any = {};
+      
+      // ✅ Parse the state parameter
+      if (req.query.state) {
+        try {
+          const stateStr = String(req.query.state);
+          state = JSON.parse(decodeURIComponent(stateStr));
+          console.log("✅ Parsed state:", state);
+        } catch (err) {
+          console.warn('⚠️ Invalid OAuth state received:', req.query.state);
+          console.error(err);
+        }
+      }
+
+      // ✅ Booking flow - redirect back to the booking page
+      if (state.flow === 'booking' && state.redirectTo) {
+        console.log(`🔄 Booking flow detected, redirecting to: ${state.redirectTo}`);
+        return res.redirect(
+          `${clientUrl}${state.redirectTo}?authToken=${token}`
+        );
+      }
+
+      // ✅ Default normal login flow
+      console.log("🔄 Normal login flow, redirecting to auth callback");
+      return res.redirect(`${clientUrl}/auth/callback?token=${token}`);
+      
+    } catch (error) {
+      console.error('❌ OAuth callback error:', error);
+      const clientUrl = process.env.CLIENT_URL || 'http://localhost:8080';
+      return res.redirect(`${clientUrl}/auth/error?message=oauth_failed`);
     }
-  } catch (err) {
-    console.warn('Invalid OAuth state received:', req.query.state);
   }
 
-  // ✅ Booking flow
-  if (state.flow === 'booking') {
-  return res.redirect(
-    `${clientUrl}${state.redirectTo}?token=${token}`
-  );
-}
-
-
-  // ✅ Default normal login flow
-  return res.redirect(`${clientUrl}/auth/callback?token=${token}`);
-}
-
-  // NEW: Return auth URL instead of redirecting (so frontend can handle the redirect)
   @Get('get-calendar-auth-url')
   @UseGuards(AuthGuard('jwt'))
   async getCalendarAuthUrl(@Req() req) {
@@ -93,7 +106,6 @@ async googleSignInCallback(@Req() req, @Res() res: Response) {
     }
   }
 
-  // Calendar OAuth callback
   @Get('callback')
   async calendarCallback(
     @Query('code') code: string,
@@ -111,26 +123,20 @@ async googleSignInCallback(@Req() req, @Res() res: Response) {
     }
   }
 
-  // Calendar status - FIXED: Now properly returns actual connection status
   @Get('calendar-status')
   @UseGuards(AuthGuard('jwt'))
   async getCalendarStatus(@Req() req) {
     const userId = req.user.id;
-    
-    // Get actual connection status from service
     const status = await this.googleCalendarService.getConnectionStatus(userId);
     
-    // You can also fetch group info if needed
-    // For now, returning just the connection status
     return {
       connected: status.connected,
       tokenValid: status.tokenValid,
       hasRefreshToken: status.hasRefreshToken,
-      groupId: null, // Add this if you have group logic
+      groupId: null,
     };
   }
 
-  // Webhook endpoint for Google Calendar notifications
   @Post('webhook')
   @HttpCode(200)
   async handleWebhook(
