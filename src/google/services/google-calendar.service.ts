@@ -17,13 +17,13 @@ export class GoogleCalendarService {
     const oauth2Client = new google.auth.OAuth2(
       this.configService.get('GOOGLE_CLIENT_ID'),
       this.configService.get('GOOGLE_CLIENT_SECRET'),
-      this.configService.get<string>('redirectUri'), 
+      this.configService.get('redirectUri'), 
     );
 
     const state = jwt.sign(
       { userId },
       this.configService.get('JWT_SECRET')!,
-      { expiresIn: '10m' }
+      { expiresIn: '1h' }
     );
 
     const authUrl = oauth2Client.generateAuthUrl({

@@ -15,6 +15,7 @@ import { Response } from 'express';
 import { GoogleCalendarService } from './services/google-calendar.service';
 import { GoogleWebhookService } from './services/google-webhook.service';
 import { GoogleAuthService } from './services/google-auth.service';
+import { JwtService } from '@nestjs/jwt';
 
 @Controller('auth/google')
 export class GoogleController {
@@ -22,59 +23,73 @@ export class GoogleController {
     private googleCalendarService: GoogleCalendarService,
     private googleWebhookService: GoogleWebhookService,
     private googleAuthService: GoogleAuthService,
+    private JwtService:JwtService
   ) {}
 
   @Get('signin')
-  @UseGuards(AuthGuard('google'))
-  async googleSignIn(@Query('state') state: string, @Req() req) {
-    // ✅ Pass state through to Google OAuth
-    // The state will be automatically included by passport
+@UseGuards(AuthGuard('google'))
+async googleSignIn(
+  @Query('flow') flow: string,
+  @Query('redirectTo') redirectTo: string,
+  @Req() req,
+) {
+  if (flow && redirectTo) {
+    const state = await this.JwtService.signAsync(
+  { flow, redirectTo },
+  { expiresIn: '1h' }
+);
+
+
+    req.query.state = state;
   }
+}
 
-  @Get('signin/callback')
-  @UseGuards(AuthGuard('google'))
-  async googleSignInCallback(@Req() req, @Res() res: Response) {
-    try {
-      const user = req.user; // populated by GoogleStrategy
-      const token = await this.googleAuthService.generateJwtToken(user);
 
-      const clientUrl = process.env.CLIENT_URL || 'http://localhost:8080';
-      
-      console.log("=".repeat(50));
-      console.log("📋 Query params:", req.query);
-      
-      let state: any = {};
-      
-      // ✅ Parse the state parameter
-      if (req.query.state) {
-        try {
-          const stateStr = String(req.query.state);
-          state = JSON.parse(decodeURIComponent(stateStr));
-          console.log("✅ Parsed state:", state);
-        } catch (err) {
-          console.warn('⚠️ Invalid OAuth state received:', req.query.state);
-          console.error(err);
-        }
+@Get('signin/callback')
+@UseGuards(AuthGuard('google'))
+async googleSignInCallback(@Req() req, @Res() res: Response) {
+  try {
+    const user = req.user;
+    const token = await this.googleAuthService.generateJwtToken(user);
+
+    const clientUrl = process.env.CLIENT_URL || 'http://localhost:8080';
+
+    console.log("=".repeat(50));
+    console.log("📋 Query params:", req.query);
+
+    let state: any = {};
+
+    // ✅ Verify JWT-based OAuth state
+    if (req.query.state) {
+      try {
+        const stateStr = String(req.query.state);
+        state = this.JwtService.verify(stateStr);
+        console.log("✅ Verified state:", state);
+      } catch (err) {
+        console.warn('⚠️ Invalid or expired OAuth state:', req.query.state);
+        console.error(err);
       }
-
-      // ✅ Booking flow - redirect back to the booking page
-      if (state.flow === 'booking' && state.redirectTo) {
-        console.log(`🔄 Booking flow detected, redirecting to: ${state.redirectTo}`);
-        return res.redirect(
-          `${clientUrl}${state.redirectTo}?authToken=${token}`
-        );
-      }
-
-      // ✅ Default normal login flow
-      console.log("🔄 Normal login flow, redirecting to auth callback");
-      return res.redirect(`${clientUrl}/auth/callback?token=${token}`);
-      
-    } catch (error) {
-      console.error('❌ OAuth callback error:', error);
-      const clientUrl = process.env.CLIENT_URL || 'http://localhost:8080';
-      return res.redirect(`${clientUrl}/auth/error?message=oauth_failed`);
     }
+
+    // ✅ Booking flow
+    if (state.flow === 'booking' && state.redirectTo) {
+      console.log(`🔄 Booking flow detected, redirecting to: ${state.redirectTo}`);
+      return res.redirect(
+        `${clientUrl}${state.redirectTo}?authToken=${token}`
+      );
+    }
+
+    // ✅ Normal login flow
+    console.log("🔄 Normal login flow");
+    return res.redirect(`${clientUrl}/auth/callback?token=${token}`);
+
+  } catch (error) {
+    console.error('❌ OAuth callback error:', error);
+    const clientUrl = process.env.CLIENT_URL || 'http://localhost:8080';
+    return res.redirect(`${clientUrl}/auth/error?message=oauth_failed`);
   }
+}
+
 
   @Get('get-calendar-auth-url')
   @UseGuards(AuthGuard('jwt'))
