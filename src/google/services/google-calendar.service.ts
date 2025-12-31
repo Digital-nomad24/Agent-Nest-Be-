@@ -8,12 +8,14 @@ import * as jwt from 'jsonwebtoken';
 
 @Injectable()
 export class GoogleCalendarService {
+  private refreshLocks = new Map<string, Promise<string>>();
+
   constructor(
     private configService: ConfigService,
     private prisma: PrismaService,
   ) {}
 
-  getAuthUrl(userId: string): string {    
+  async getAuthUrl(userId: string, forceConsent = false): Promise<string> {    
     const oauth2Client = new google.auth.OAuth2(
       this.configService.get('GOOGLE_CLIENT_ID'),
       this.configService.get('GOOGLE_CLIENT_SECRET'),
@@ -23,18 +25,26 @@ export class GoogleCalendarService {
     const state = jwt.sign(
       { userId },
       this.configService.get('JWT_SECRET')!,
-      { expiresIn: '1h' }
+      { expiresIn: '48h' }
     );
+
+    // Check if user already has a refresh token
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { googleRefreshToken: true },
+    });
 
     const authUrl = oauth2Client.generateAuthUrl({
       access_type: 'offline',
-      prompt: 'consent',
+      // Only force consent if explicitly requested or if no refresh token exists
+      prompt: forceConsent || !user?.googleRefreshToken ? 'consent' : 'select_account',
       scope: [
-               'https://www.googleapis.com/auth/calendar',
-             ],      state,
+        'https://www.googleapis.com/auth/calendar',
+      ],      
+      state,
     });
 
-    console.log('📋 Generated auth URL with redirect_uri:');
+    console.log('📋 Generated auth URL with redirect_uri');
     return authUrl;
   }
 
@@ -48,6 +58,12 @@ export class GoogleCalendarService {
 
     console.log('✅ State verified for user:', userId);
    
+    // Fetch existing user data to preserve refresh token
+    const existingUser = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { googleRefreshToken: true },
+    });
+
     const oauth2Client = new google.auth.OAuth2(
       this.configService.get('GOOGLE_CLIENT_ID'),
       this.configService.get('GOOGLE_CLIENT_SECRET'),
@@ -66,12 +82,18 @@ export class GoogleCalendarService {
       data: {
         calendarConnected: true,
         googleAccessToken: tokens.access_token!,
-        googleRefreshToken: tokens.refresh_token,
+        // Preserve existing refresh token if new one not provided
+        googleRefreshToken: tokens.refresh_token || existingUser?.googleRefreshToken,
         accessTokenExpiry: expiryTime,
       },
     });
 
     console.log('💾 Calendar connected for user:', userId);
+    console.log('🔑 Refresh token status:', {
+      newTokenReceived: !!tokens.refresh_token,
+      hasExistingToken: !!existingUser?.googleRefreshToken,
+      finalToken: !!(tokens.refresh_token || existingUser?.googleRefreshToken),
+    });
 
     await this.setupCalendarWatch(userId, tokens.access_token!);
   }
@@ -171,13 +193,29 @@ export class GoogleCalendarService {
       user.accessTokenExpiry <= expiryBuffer;
 
     if (needsRefresh) {
-      return await this.refreshToken(userId, user.googleRefreshToken);
+      // Check if refresh is already in progress for this user
+      if (this.refreshLocks.has(userId)) {
+        console.log('⏳ Token refresh already in progress for user:', userId);
+        return this.refreshLocks.get(userId)!;
+      }
+
+      // Create a new refresh promise and store it
+      const refreshPromise = this.refreshToken(userId, user.googleRefreshToken)
+        .finally(() => {
+          // Remove lock when done
+          this.refreshLocks.delete(userId);
+        });
+
+      this.refreshLocks.set(userId, refreshPromise);
+      return refreshPromise;
     }
 
     return user.googleAccessToken!;
   }
 
   private async refreshToken(userId: string, refreshToken: string): Promise<string> {
+    console.log('🔄 Refreshing token for user:', userId);
+    
     const oauth2Client = new google.auth.OAuth2(
       this.configService.get('GOOGLE_CLIENT_ID'),
       this.configService.get('GOOGLE_CLIENT_SECRET'),
@@ -193,20 +231,27 @@ export class GoogleCalendarService {
         : new Date(Date.now() + 3600 * 1000);
 
       await this.prisma.user.update({
-        where: { id:userId },
+        where: { id: userId },
         data: {
           googleAccessToken: credentials.access_token!,
+          // Google rarely sends a new refresh token, so preserve the original
           googleRefreshToken: credentials.refresh_token || refreshToken,
           accessTokenExpiry: expiryTime,
           calendarConnected: true,
         },
       });
 
+      console.log('✅ Token refreshed successfully for user:', userId);
+      console.log('🔑 New refresh token received:', !!credentials.refresh_token);
+      
       return credentials.access_token!;
     } catch (error: any) {
-      console.error('Token refresh error:', error);
+      console.error('❌ Token refresh error for user:', userId, error.message);
 
-      if (error.response?.status === 400) {
+      // If token is invalid or revoked, disconnect the calendar
+      if (error.response?.status === 400 || error.response?.status === 401) {
+        console.log('🔓 Disconnecting calendar due to invalid token');
+        
         await this.prisma.user.update({
           where: { id: userId },
           data: {
@@ -218,7 +263,48 @@ export class GoogleCalendarService {
         });
       }
 
-      throw new Error('Failed to refresh token');
+      throw new Error('Failed to refresh token. User needs to reconnect.');
+    }
+  }
+
+  async disconnectCalendar(userId: string) {
+    try {
+      // Revoke the token with Google
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { googleAccessToken: true },
+      });
+
+      if (user?.googleAccessToken) {
+        const oauth2Client = new google.auth.OAuth2(
+          this.configService.get('GOOGLE_CLIENT_ID'),
+          this.configService.get('GOOGLE_CLIENT_SECRET'),
+          this.configService.get('redirectUri'),
+        );
+
+        try {
+          await oauth2Client.revokeToken(user.googleAccessToken);
+          console.log('🔓 Token revoked with Google');
+        } catch (error) {
+          console.warn('⚠️ Could not revoke token with Google:', error);
+        }
+      }
+
+      // Clean up database
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          calendarConnected: false,
+          googleAccessToken: null,
+          googleRefreshToken: null,
+          accessTokenExpiry: null,
+        },
+      });
+
+      console.log('💾 Calendar disconnected for user:', userId);
+    } catch (error) {
+      console.error('Failed to disconnect calendar:', error);
+      throw error;
     }
   }
 }

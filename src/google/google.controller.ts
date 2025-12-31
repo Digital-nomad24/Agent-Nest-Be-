@@ -38,25 +38,11 @@ async googleSignInCallback(@Req() req, @Res() res: Response) {
   const token = await this.googleAuthService.generateJwtToken(user);
 
   const clientUrl = process.env.CLIENT_URL || 'http://localhost:8080';
-
-  // ✅ Parse state safely
-  let state: any = {};
-  try {
-    if (req.query.state) {
-      state = JSON.parse(String(req.query.state));
-    }
-  } catch (err) {
-    console.warn('Invalid OAuth state received:', req.query.state);
-  }
-
-  // ✅ Booking flow
-  if (state.flow === 'booking' && state.redirectTo) {
-    console.log("booking".repeat(10))
+  if (!req.user) {
     return res.redirect(
-      `${clientUrl}${state.redirectTo}`
+      `${process.env.CLIENT_URL}/signin?error=google_auth_failed`
     );
   }
-
   // ✅ Default normal login flow
   return res.redirect(`${clientUrl}/auth/callback?token=${token}`);
 }
@@ -82,7 +68,7 @@ async googleSignInCallback(@Req() req, @Res() res: Response) {
     try {
       const userId = req.user.id;
       console.log('🔐 Connecting calendar for user:', userId);
-      const authUrl = this.googleCalendarService.getAuthUrl(userId);
+      const authUrl = await this.googleCalendarService.getAuthUrl(userId);
       console.log('🔗 Redirecting to:', authUrl);
       res.redirect(authUrl);
     } catch (error) {

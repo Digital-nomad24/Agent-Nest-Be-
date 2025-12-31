@@ -52,9 +52,8 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
         user = await this.prisma.user.update({
           where: { id: user.id },
           data: {
-            googleAccessToken: accessToken,
-            googleRefreshToken: refreshToken || user.googleRefreshToken,
-          },
+          googleRefreshToken: refreshToken || user.googleRefreshToken,
+},
         });
         return done(null, user);
       }
