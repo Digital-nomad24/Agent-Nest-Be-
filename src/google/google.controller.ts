@@ -31,31 +31,32 @@ export class GoogleController {
     // GoogleAuthGuard redirects to Google
   }
 
-  @Get('signin/callback')
+@Get('signin/callback')
 @UseGuards(AuthGuard('google'))
 async googleSignInCallback(@Req() req, @Res() res: Response) {
   const user = req.user; // populated by GoogleStrategy
   const token = await this.googleAuthService.generateJwtToken(user);
 
   const clientUrl = process.env.CLIENT_URL || 'http://localhost:8080';
-
-  // ✅ Parse state safely
+  console.log("^%^".repeat(19))
+  console.log(req.query)
   let state: any = {};
   try {
     if (req.query.state) {
       state = JSON.parse(String(req.query.state));
+      console.log("this is state", state)
     }
   } catch (err) {
     console.warn('Invalid OAuth state received:', req.query.state);
   }
 
   // ✅ Booking flow
-  if (state.flow === 'booking' && state.redirectTo) {
-    console.log("booking".repeat(10))
-    return res.redirect(
-      `${clientUrl}${state.redirectTo}`
-    );
-  }
+  if (state.flow === 'booking') {
+  return res.redirect(
+    `${clientUrl}${state.redirectTo}?token=${token}`
+  );
+}
+
 
   // ✅ Default normal login flow
   return res.redirect(`${clientUrl}/auth/callback?token=${token}`);
