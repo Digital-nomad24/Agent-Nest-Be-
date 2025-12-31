@@ -28,21 +28,7 @@ export class GoogleController {
 
   @Get('signin')
 @UseGuards(AuthGuard('google'))
-async googleSignIn(
-  @Query('flow') flow: string,
-  @Query('redirectTo') redirectTo: string,
-  @Req() req,
-) {
-  if (flow && redirectTo) {
-    const state = await this.JwtService.signAsync(
-  { flow, redirectTo },
-  { expiresIn: '1h' }
-);
-
-
-    req.query.state = state;
-  }
-}
+async googleSignIn(){}
 
 
 @Get('signin/callback')

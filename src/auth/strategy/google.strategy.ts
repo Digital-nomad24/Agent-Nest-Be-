@@ -4,12 +4,13 @@ import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, Profile, VerifyCallback } from 'passport-google-oauth20';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from 'prisma/prisma.service';
-
+import { JwtService } from '@nestjs/jwt';
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   constructor(
     private configService: ConfigService,
     private prisma: PrismaService,
+    private JwtService:JwtService
   ) {
     super({
       clientID: configService.get<string>('GOOGLE_CLIENT_ID')!,
@@ -21,12 +22,28 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     });
   }
 
-  authorizationParams(): { [key: string]: string } {
+  authorizationParams(req: any): { [key: string]: string } {
+  const { flow, redirectTo } = req.query;
+
+  if (flow && redirectTo) {
+    const state =this.JwtService.sign(
+      { flow, redirectTo },
+      { expiresIn: '1h' },
+    );
+
     return {
       access_type: 'offline',
       prompt: 'consent',
+      state,
     };
   }
+
+  return {
+    access_type: 'offline',
+    prompt: 'consent',
+  };
+}
+
 
   async validate(
     req: any, // ✅ Now we get the request object
