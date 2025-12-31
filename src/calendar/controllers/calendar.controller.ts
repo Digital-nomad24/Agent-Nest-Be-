@@ -21,7 +21,6 @@ import { CurrentUser } from 'src/auth/decorator';
 
 
 @Controller('calendar')
-@UseGuards(AuthGuard('jwt'))
 export class CalendarController {
   constructor(
     private readonly CalendarSyncUseCase: CalendarSyncUseCase,
@@ -34,6 +33,8 @@ export class CalendarController {
    * POST /calendar/sync-calendar
    * Syncs the current month's events from Google Calendar
    */
+  @UseGuards(AuthGuard('jwt'))
+
   @Post('sync-calendar')
   @HttpCode(HttpStatus.OK)
   async syncCalendar(@CurrentUser()user) {
@@ -44,6 +45,8 @@ export class CalendarController {
    * POST /calendar/add-event
    * Creates a new meeting and pushes it to Google Calendar
    */
+  @UseGuards(AuthGuard('jwt'))
+
   @Post('add-event')
   @HttpCode(HttpStatus.CREATED)
   async addEvent(
@@ -57,6 +60,8 @@ export class CalendarController {
    * POST /calendar/share-link
    * Generates a shareable calendar link with availability preferences
    */
+  @UseGuards(AuthGuard('jwt'))
+
   @Post('share-link')
   @HttpCode(HttpStatus.CREATED)
   async createShareLink(
@@ -79,6 +84,8 @@ export class CalendarController {
    * POST /calendar/share/:token/book
    * Books a time slot through a shared calendar link
    */
+  @UseGuards(AuthGuard('jwt'))
+
   @Post('share/:token/book')
   @HttpCode(HttpStatus.CREATED)
   async bookSlot(

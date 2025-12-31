@@ -10,7 +10,6 @@ import { randomBytes } from 'crypto';
 import { google } from 'googleapis';
 import { PrismaService } from 'prisma/prisma.service';
 import { CreateShareLinkDto } from '../controllers/dtos/create-share-link.input';
-import { GoogleCalendarClientService } from '../services/getGoogleCalendarClient.service';
 import { GoogleCalendarService } from 'src/google/services/google-calendar.service';
 
 @Injectable()
@@ -23,9 +22,7 @@ export class CalendarShareUseCase {
     private readonly configService: ConfigService,
   ) {}
 
-  /**
-   * Creates a shareable calendar link with availability preferences
-   */
+
   async createShareLink(userId: string, dto: CreateShareLinkDto) {
     try {
       const {
