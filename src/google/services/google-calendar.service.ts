@@ -15,7 +15,7 @@ export class GoogleCalendarService {
     private prisma: PrismaService,
   ) {}
 
-  async getAuthUrl(userId: string, forceConsent = false): Promise<string> {    
+  getAuthUrl(userId: string, forceConsent = false): string {    
     const oauth2Client = new google.auth.OAuth2(
       this.configService.get('GOOGLE_CLIENT_ID'),
       this.configService.get('GOOGLE_CLIENT_SECRET'),
@@ -28,16 +28,10 @@ export class GoogleCalendarService {
       { expiresIn: '48h' }
     );
 
-    // Check if user already has a refresh token
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { googleRefreshToken: true },
-    });
-
     const authUrl = oauth2Client.generateAuthUrl({
       access_type: 'offline',
-      // Only force consent if explicitly requested or if no refresh token exists
-      prompt: forceConsent || !user?.googleRefreshToken ? 'consent' : 'select_account',
+      // Use 'consent' only if explicitly forced, otherwise use 'select_account'
+      prompt: forceConsent ? 'consent' : 'select_account',
       scope: [
         'https://www.googleapis.com/auth/calendar',
       ],      
