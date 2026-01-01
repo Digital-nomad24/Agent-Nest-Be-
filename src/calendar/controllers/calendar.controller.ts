@@ -17,6 +17,8 @@ import { CreateEventDto } from './dtos/create-event.input';
 import { CreateShareLinkDto } from './dtos/create-share-link.input';
 import { CreateCalendarEventUseCase } from '../use-cases/create-calendar-event.use-case';
 import { CurrentUser } from 'src/auth/decorator';
+import { Auth } from 'googleapis';
+import { GoogleCalendarService } from 'src/google/services/google-calendar.service';
 
 
 
@@ -27,6 +29,7 @@ export class CalendarController {
     private readonly CreateCalendarEventUseCase: CreateCalendarEventUseCase,
     private readonly calendarShareUseCase: CalendarShareUseCase,
     private readonly calendarBookingUseCase: CalendarBookingUseCase,
+    private readonly GoogleCalendarService:GoogleCalendarService
   ) {}
 
   /**
@@ -94,5 +97,12 @@ export class CalendarController {
     @Body() bookSlotDto: BookSlotDto,
   ) {
     return this.calendarBookingUseCase.bookSlot(user.id, token, bookSlotDto);
+  }
+
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('disconnectCalendar')
+  async disconnectCalendar(@CurrentUser() user) {
+    return this.GoogleCalendarService.disconnectCalendar(user.id)
   }
 }
