@@ -3,14 +3,13 @@ import { CreateEventDto } from '../controllers/dtos/create-event.input';
 import { PrismaService } from 'prisma/prisma.service';
 import { GoogleCalendarClientService } from '../services/getGoogleCalendarClient.service';
 
-
 @Injectable()
 export class CreateCalendarEventUseCase {
   private readonly logger = new Logger(CreateCalendarEventUseCase.name);
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly GoogleCalendarClientService: GoogleCalendarClientService,
+    private readonly googleCalendarClientService: GoogleCalendarClientService,
   ) {}
 
   /**
@@ -29,7 +28,20 @@ export class CreateCalendarEventUseCase {
         conference,
       } = createEventDto;
 
-      const calendar = await this.GoogleCalendarClientService.getGoogleCalendarClient(userId);
+      // Validate times
+      const start = new Date(startTime);
+      const end = new Date(endTime);
+
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        throw new BadRequestException('Invalid start or end time');
+      }
+
+      if (end <= start) {
+        throw new BadRequestException('End time must be after start time');
+      }
+
+      // Get calendar client (handles token refresh)
+      const calendar = await this.googleCalendarClientService.getGoogleCalendarClient(userId);
 
       const eventData: any = {
         summary: title,
@@ -58,25 +70,30 @@ export class CreateCalendarEventUseCase {
 
       const googleEvent = calendarRes.data;
 
+      if (!googleEvent.id) {
+        throw new Error('Failed to create event in Google Calendar');
+      }
+
       const duration =
-        (new Date(endTime).getTime() - new Date(startTime).getTime()) /
-        (1000 * 60);
+        (end.getTime() - start.getTime()) / (1000 * 60);
 
       const meeting = await this.prisma.meeting.create({
         data: {
           title,
           description,
-          startTime: new Date(startTime),
-          endTime: new Date(endTime),
+          startTime: start,
+          endTime: end,
           duration,
           groupId,
           organizerId: userId,
           location,
           meetingLink: googleEvent?.hangoutLink || null,
-          googleEventId: googleEvent?.id || null,
+          googleEventId: googleEvent.id,
           status: 'confirmed',
         },
       });
+
+      this.logger.log(`Event created successfully for user ${userId}: ${googleEvent.id}`);
 
       return {
         message: 'Meeting created and pushed to Google Calendar',
@@ -85,8 +102,11 @@ export class CreateCalendarEventUseCase {
         eventHtmlLink: googleEvent.htmlLink,
       };
     } catch (error) {
-      this.logger.error('Error pushing meeting to calendar:', error);
-      throw error;
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      this.logger.error('Error creating calendar event:', error);
+      throw new BadRequestException('Failed to create calendar event');
     }
   }
 }

@@ -7,14 +7,11 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import dayjs from 'dayjs';
-import utc from 'dayjs/plugin/utc'
-import { google } from 'googleapis';
-
+import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import { PrismaService } from 'prisma/prisma.service';
-import { GoogleCalendarService } from 'src/google/services/google-calendar.service';
+import { GoogleCalendarClientService } from '../services/getGoogleCalendarClient.service';
 import { BookSlotDto } from '../controllers/dtos/book-slot.input';
 
 dayjs.extend(utc);
@@ -26,8 +23,7 @@ export class CalendarBookingUseCase {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly GoogleCalendarService: GoogleCalendarService,
-    private readonly configService: ConfigService,
+    private readonly googleCalendarClientService: GoogleCalendarClientService,
   ) {}
 
   /**
@@ -50,7 +46,7 @@ export class CalendarBookingUseCase {
         throw new NotFoundException('Authenticated user not found');
       }
 
-      const visitorName = visitor.name;
+      const visitorName = visitor.name || 'Guest';
       const visitorEmail = visitor.email;
 
       // Validate and parse times
@@ -68,12 +64,17 @@ export class CalendarBookingUseCase {
         throw new BadRequestException('End time must be after start time');
       }
 
+      // Get share link with owner info
       const shareLink = await this.prisma.calendarShareLink.findUnique({
         where: { token },
         include: { user: true },
       });
 
-      if (!shareLink || new Date() > shareLink.expiresAt || !shareLink.isActive) {
+      if (!shareLink) {
+        throw new NotFoundException('Share link not found');
+      }
+
+      if (new Date() > shareLink.expiresAt || !shareLink.isActive) {
         throw new GoneException('Link expired or inactive');
       }
 
@@ -81,7 +82,7 @@ export class CalendarBookingUseCase {
 
       if (!user.googleRefreshToken) {
         throw new UnauthorizedException(
-          'User not connected to Google Calendar',
+          'Calendar owner not connected to Google Calendar',
         );
       }
 
@@ -101,7 +102,7 @@ export class CalendarBookingUseCase {
         parsedEndTime > availableEnd
       ) {
         throw new BadRequestException(
-          'Booking is outside the available period.',
+          'Booking is outside the available period',
         );
       }
 
@@ -114,11 +115,16 @@ export class CalendarBookingUseCase {
 
       if (
         bookingStartHour < earliestHour ||
-        bookingEndHour > latestHour ||
-        (!allowWeekends && [0, 6].includes(bookingDay))
+        bookingEndHour > latestHour
       ) {
         throw new BadRequestException(
-          'Booking is outside allowed hours or on a weekend.',
+          `Booking must be between ${earliestHour}:00 and ${latestHour}:00`,
+        );
+      }
+
+      if (!allowWeekends && [0, 6].includes(bookingDay)) {
+        throw new BadRequestException(
+          'Weekend bookings are not allowed',
         );
       }
 
@@ -129,24 +135,14 @@ export class CalendarBookingUseCase {
 
       if (actualSlotDuration !== slotDuration) {
         throw new BadRequestException(
-          `Booking must be exactly ${slotDuration} minutes long.`,
+          `Booking must be exactly ${slotDuration} minutes long`,
         );
       }
 
-      // Get Google Calendar client
-      const accessToken = await this.GoogleCalendarService.getValidAccessToken(
+      // Get Google Calendar client (handles token refresh)
+      const calendar = await this.googleCalendarClientService.getGoogleCalendarClient(
         user.id,
       );
-
-      const oauth2Client = new google.auth.OAuth2(
-        this.configService.get<string>('GOOGLE_CLIENT_ID'),
-        this.configService.get<string>('GOOGLE_CLIENT_SECRET'),
-        this.configService.get<string>('GOOGLE_REDIRECT_URI'),
-      );
-
-      oauth2Client.setCredentials({ access_token: accessToken });
-
-      const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
 
       // Check availability (FreeBusy)
       const freeBusyRes = await calendar.freebusy.query({
@@ -167,7 +163,7 @@ export class CalendarBookingUseCase {
 
       if (isSlotBusy) {
         throw new ConflictException(
-          'Time slot already booked. Please choose another.',
+          'Time slot already booked. Please choose another',
         );
       }
 
@@ -195,6 +191,8 @@ export class CalendarBookingUseCase {
         },
       });
 
+      this.logger.log(`Booking successful for user ${userId} with token ${token}`);
+
       return {
         message: 'Meeting booked successfully!',
         eventId: eventRes.data.id,
@@ -202,8 +200,17 @@ export class CalendarBookingUseCase {
         calendarResponse: eventRes.data,
       };
     } catch (error) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof GoneException ||
+        error instanceof ConflictException ||
+        error instanceof NotFoundException ||
+        error instanceof UnauthorizedException
+      ) {
+        throw error;
+      }
       this.logger.error('Booking failed:', error);
-      throw error;
+      throw new BadRequestException('Failed to book time slot');
     }
   }
 }

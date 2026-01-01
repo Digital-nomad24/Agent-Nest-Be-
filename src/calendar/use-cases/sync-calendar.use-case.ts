@@ -1,13 +1,14 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, InternalServerErrorException } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
 import { GoogleCalendarClientService } from '../services/getGoogleCalendarClient.service';
+
 @Injectable()
 export class CalendarSyncUseCase {
   private readonly logger = new Logger(CalendarSyncUseCase.name);
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly GoogleCalendarClientService: GoogleCalendarClientService,
+    private readonly googleCalendarClientService: GoogleCalendarClientService,
   ) {}
 
   /**
@@ -15,7 +16,9 @@ export class CalendarSyncUseCase {
    */
   async syncCurrentMonth(userId: string) {
     try {
-      const calendar = await this.GoogleCalendarClientService.getGoogleCalendarClient(userId);
+      // Get calendar client (handles token refresh)
+      const calendar = await this.googleCalendarClientService.getGoogleCalendarClient(userId);
+      
       const { start, end } = this.getCurrentMonthRange();
 
       this.logger.log(
@@ -35,6 +38,7 @@ export class CalendarSyncUseCase {
       const events = response.data.items || [];
       this.logger.log(`Fetched ${events.length} events from Google Calendar`);
 
+      // Delete existing events in this range
       await this.prisma.calendarEvent.deleteMany({
         where: {
           userId,
@@ -47,16 +51,27 @@ export class CalendarSyncUseCase {
 
       // Create new events
       let syncedCount = 0;
+      let skippedCount = 0;
+
       for (const event of events) {
         if (event.start && event.end) {
           try {
+            // Handle both dateTime and date (all-day events)
+            const startTime = event.start.dateTime 
+              ? new Date(event.start.dateTime) 
+              : new Date(event.start.date!);
+            
+            const endTime = event.end.dateTime 
+              ? new Date(event.end.dateTime) 
+              : new Date(event.end.date!);
+
             await this.prisma.calendarEvent.create({
               data: {
                 userId,
                 title: event.summary || 'Untitled Event',
                 description: event.description || null,
-                startTime: new Date(event.start.dateTime || event.start.date!),
-                endTime: new Date(event.end.dateTime || event.end.date!),
+                startTime,
+                endTime,
                 isAllDay: !event.start.dateTime,
                 googleEventId: event.id || null,
                 status:
@@ -69,8 +84,11 @@ export class CalendarSyncUseCase {
             });
             syncedCount++;
           } catch (error) {
-            this.logger.error('Error creating calendar event:', error);
+            this.logger.error(`Error creating calendar event ${event.id}:`, error);
+            skippedCount++;
           }
+        } else {
+          skippedCount++;
         }
       }
 
@@ -80,16 +98,19 @@ export class CalendarSyncUseCase {
         data: { lastCalendarSync: new Date() },
       });
 
+      this.logger.log(`Sync completed: ${syncedCount} synced, ${skippedCount} skipped`);
+
       return {
         message: 'Calendar synced successfully for current month',
         period: `${start.toDateString()} to ${end.toDateString()}`,
         totalFetched: events.length,
         syncedCount,
+        skippedCount,
         lastSync: new Date().toISOString(),
       };
     } catch (error) {
       this.logger.error('Calendar sync error:', error);
-      throw error;
+      throw new InternalServerErrorException('Failed to sync calendar');
     }
   }
 
