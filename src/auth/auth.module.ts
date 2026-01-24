@@ -10,7 +10,7 @@ import { REPO_PROVIDER } from './repos/repo.provider';
 import { PassportModule } from '@nestjs/passport';
 @Global()
 @Module({
-  imports: [PrismaModule,JwtModule],
+  imports: [PrismaModule],
   providers: [AuthService,JwtStrategy,...UseCaseProvider,...REPO_PROVIDER],
   controllers:[AuthController],
   exports: [AuthService],
