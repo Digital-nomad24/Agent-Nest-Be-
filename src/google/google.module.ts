@@ -8,15 +8,7 @@ import { PassportModule } from '@nestjs/passport';
 import { GoogleStrategy } from 'src/auth/strategy/google.strategy';
 
 @Module({
-  imports: [PassportModule.register({ defaultStrategy: 'jwt' }), 
-    JwtModule.registerAsync({
-      imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET'),
-        signOptions: { expiresIn: '7d' },
-      }),
-      inject: [ConfigService],
-    }),PrismaModule],
+  imports: [PrismaModule],
   controllers: [GoogleController],
   providers: [...SERVICE_PROVIDER,GoogleStrategy],
   exports:[...SERVICE_PROVIDER,GoogleStrategy]

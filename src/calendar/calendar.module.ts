@@ -7,6 +7,7 @@ import { PassportModule } from '@nestjs/passport';
 import { SERVICE_PROVIDER } from './services/services.provider';
 import { GoogleCalendarService } from 'src/google/services/google-calendar.service';
 import { GoogleModule } from 'src/google/google.module';
+import { GoogleCalendarClientService } from './services/getGoogleCalendarClient.service';
 
 @Module({
   imports:[GoogleModule,
@@ -22,6 +23,7 @@ import { GoogleModule } from 'src/google/google.module';
     
   ],
   controllers: [CalendarController],
+  exports:[GoogleCalendarClientService],
   providers: [...SERVICE_PROVIDER,...USE_CASE_PROVIDER,],
   
   
