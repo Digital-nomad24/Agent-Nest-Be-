@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
-import { MeetingController } from './meeting.controller';
-import { MeetingService } from './meeting.service';
+import { MeetingController } from './controller/meeting.controller';
 import { CalendarModule } from 'src/calendar/calendar.module';
+import { MeetingService } from './meeting.service';
 
 @Module({
   imports: [CalendarModule],

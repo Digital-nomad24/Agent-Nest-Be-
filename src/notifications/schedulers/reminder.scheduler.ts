@@ -12,7 +12,7 @@ export class ReminderScheduler {
     private readonly publishReminder: ReminderPublisherService,
   ) {}
 
-  @Cron('* * * * *')
+  @Cron('*/5 * * * *')
   async handleReminders() {
     this.logger.log('CRON JOB RUNNING');
 

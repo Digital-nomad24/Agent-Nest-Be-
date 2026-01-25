@@ -24,5 +24,5 @@ export class createGroupUseCase{
                 role:'admin'
             }
         })
-        return ({success:true,groupId:group.id})
+        return ({success:true,groupId:group.id,name:group.name});
 }}

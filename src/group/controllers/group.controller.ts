@@ -25,8 +25,8 @@ export class GroupController {
         return this.addMemberGroupUseCase.execute(userId,groupId);
     }
     @Get("/groups")
-    getGroups(@CurrentUser('id') userId:string){
-        return this.retrieveGroupUseCase.execute(userId);
+    getGroups(@CurrentUser() user){
+        return this.retrieveGroupUseCase.execute(user.id);
     }
     @Get('/groupMembers/:groupId')
     getGroupMembers(@Param('groupId') groupId:string){
