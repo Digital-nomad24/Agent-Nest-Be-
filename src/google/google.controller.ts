@@ -43,11 +43,9 @@ async googleSignInCallback(@Req() req, @Res() res: Response) {
       `${process.env.CLIENT_URL}/signin?error=google_auth_failed`
     );
   }
-  // ✅ Default normal login flow
   return res.redirect(`${clientUrl}/auth/callback?token=${token}`);
 }
 
-  // NEW: Return auth URL instead of redirecting (so frontend can handle the redirect)
   @Get('get-calendar-auth-url')
   @UseGuards(AuthGuard('jwt'))
   async getCalendarAuthUrl(@Req() req) {
