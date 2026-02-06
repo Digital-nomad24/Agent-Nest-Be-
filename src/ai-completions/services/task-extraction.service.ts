@@ -1,19 +1,20 @@
 // services/task-extraction.service.ts
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { OpenAI } from 'openai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { TaskPriority, TaskStatus } from 'src/tasks/controllers/dto/tasks';
 import { z } from 'zod';
 import { fromZonedTime } from 'date-fns-tz';
+
 @Injectable()
 export class TaskExtractionService {
   private readonly logger = new Logger(TaskExtractionService.name);
-  private readonly openai: OpenAI;
+  private readonly genAI: GoogleGenerativeAI;
 
   constructor(private readonly configService: ConfigService) {
-    this.openai = new OpenAI({
-      apiKey: this.configService.get<string>('OPENAI_API_KEY'),
-    });
+    this.genAI = new GoogleGenerativeAI(
+      this.configService.get<string>('GEMINI_API_KEY')!,
+    );
   }
 
   async extractTask(
@@ -26,28 +27,28 @@ export class TaskExtractionService {
     priority: TaskPriority;
     dueDate: string;
   } | null> {
-    const response = await this.openai.chat.completions.create({
-      model: 'gpt-3.5-turbo',
-      temperature: 0.3,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: message },
-      ],
-    });
-
-    const rawContent = response.choices[0]?.message?.content;
-
-    if (!rawContent) {
-      this.logger.error('No response from OpenAI');
-      return null;
-    }
-
     try {
-      // Extract JSON block from model response
+      const model = this.genAI.getGenerativeModel({
+        model: 'gemini-2.5-flash',
+      });
+
+      const result = await model.generateContent([
+        { text: systemPrompt },
+        { text: message },
+      ]);
+
+      const rawContent = result.response.text();
+
+      if (!rawContent) {
+        this.logger.error('No response from Gemini');
+        return null;
+      }
+
+      // Extract JSON block
       const match = rawContent.match(/\{[\s\S]*\}/);
 
       if (!match) {
-        this.logger.debug('No JSON found in OpenAI response');
+        this.logger.debug('No JSON found in Gemini response');
         return null;
       }
 
@@ -62,21 +63,21 @@ export class TaskExtractionService {
       });
 
       const validated = taskSchema.parse(parsed);
-      const utcDate = fromZonedTime(
-  validated.dueDate,
-  'Asia/Kolkata',
-);
 
+      const utcDate = fromZonedTime(
+        validated.dueDate,
+        'Asia/Kolkata',
+      );
 
       return {
         title: validated.title,
         description: validated.description ?? '',
         status: validated.status,
         priority: validated.priority,
-        dueDate:utcDate.toISOString(),
+        dueDate: utcDate.toISOString(),
       };
     } catch (err) {
-      this.logger.error('Failed to parse task from OpenAI response', rawContent);
+      this.logger.error('Failed to parse task from Gemini response', err);
       return null;
     }
   }
