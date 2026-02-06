@@ -33,7 +33,9 @@ export class CreateGroupMeetingUseCase{
                 startTime:new Date(startTime),
                 endTime:new Date(endTime),
                 duration:Math.floor((new Date(endTime).getTime()-new Date(startTime).getTime())/60000),
-                groupId,            }
+                groupId,
+            organizerId:userId,
+                        }
         })
     }
 }
